@@ -19,6 +19,7 @@
 
         .aa-modal-demo {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             width: 100vw;
@@ -44,10 +45,25 @@
             cursor: pointer;
         }
 
+        .aa-modal-demo__btn:not(:last-child) {
+            margin-bottom: 20px;
+        }
+
+        .aa-modal-demo__btn--alt {
+            color: #353f70;
+            background-color: #fff;
+            border: 1px solid #353f70;
+        }
+
         .aa-modal-demo__btn:hover,
         .aa-modal-demo__btn:focus {
             background-color: #7986c6;
             outline: none;
+        }
+
+        .aa-modal-demo__btn--alt:hover,
+        .aa-modal-demo__btn--alt:focus {
+            background-color: #f2f3fb;
         }
 
         @media (min-width: 768px) {
@@ -60,6 +76,7 @@
 <body>
     <div class="aa-modal-demo">
         <button class="aa-modal-demo__btn" aa-modal="" aa-modal-src="/ajax/modal.html">Press me to create a modal window</button>
+        <button class="aa-modal-demo__btn aa-modal-demo__btn--alt">Press me to create a modal window w/ different options</button>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.4.min.js" integrity="sha256-oP6HI9z1XaZNBrJURtCoUT5SUnxFr8s3BzRl+cbzUq8=" crossorigin="anonymous"></script>
