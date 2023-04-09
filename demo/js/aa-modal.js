@@ -12,20 +12,77 @@
     'use strict';
 
     let error = null,
-        style = '',
-        styleTag = $('<style></style'),
         modalIsLoading = false,
         modalIsOpen = false,
         defaultOpenTriggers = '[aa-modal]',
-        defaultCloseTriggers = '[aa-modal-close]';
+        defaultCloseTriggers = '[aa-modal-close]',
+        styleTag = $('<style></style'),
+        modalStyle = '\n'+
+            'body.aa-modal-open {\n'+
+                'overflow: hidden;\n'+
+            '}\n'+
+            '.aa-modal {\n'+
+                'position: fixed;\n'+
+                'top: 0;\n'+
+                'left: 0;\n'+
+                'width: 100vw;\n'+
+                'height: 100vh;\n'+
+                'background-color: rgba(0,0,0,.5);\n'+
+                'cursor: pointer;\n'+
+                'z-index: 999999;\n'+
+            '}\n'+
+            '.aa-modal__body {\n'+
+                'position: absolute;\n'+
+                'top: 50%;\n'+
+                'left: 50%;\n'+
+                'width: calc(100vw - 40px);\n'+
+                'max-width: 600px;\n'+
+                'height: calc(100vh - 40px);\n'+
+                'max-height: 600px;\n'+
+                'padding: 60px 20px;\n'+
+                'background-color: #fff;\n'+
+                'border-radius: 5px;\n'+
+                'transform: translate(-50%, -50%);\n'+
+                'cursor: default;\n'+
+                'overflow-y: auto;\n'+
+                'z-index: 1000000;\n'+
+            '}\n'+
+            '.aa-modal__close {\n'+
+                'position: absolute;\n'+
+                'top: 20px;\n'+
+                'right: 20px;\n'+
+                'display: flex;\n'+
+                'justify-content: center;\n'+
+                'align-items: center;\n'+
+                'width: 20px;\n'+
+                'height: 20px;\n'+
+                'padding: 0;\n'+
+                'background-color: transparent;\n'+
+                'border: none;\n'+
+                'cursor: pointer;\n'+
+            '}\n'+
+            '.aa-modal__close path {\n'+
+                'fill: #000;\n'+
+                'transition: fill .3s;\n'+
+            '}\n'+
+            '.aa-modal__close:focus {\n'+
+                'outline: none;\n'+
+            '}\n'+
+            '.aa-modal__close:hover path,\n'+
+            '.aa-modal__close:focus path {\n'+
+                'fill: rgba(0,0,0,.5);\n'+
+            '}\n'+
+        '';
 
     //default settings:
     let defaultSettings = {
-        src: '',
-        id: '',
-        class: '',
-        closeBtn: '',
-        animation: 'none',
+        src: false,
+        id: false,
+        class: false,
+        closeBtn: '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 212.982 212.982" style="enable-background:new 0 0 212.982 212.982;" xml:space="preserve">\n'+
+            '<path fill="#000000" d="M131.804,106.491l75.936-75.936c6.99-6.99,6.99-18.323,0-25.312 c-6.99-6.99-18.322-6.99-25.312,0l-75.937,75.937L30.554,5.242c-6.99-6.99-18.322-6.99-25.312,0c-6.989,6.99-6.989,18.323,0,25.312 l75.937,75.936L5.242,182.427c-6.989,6.99-6.989,18.323,0,25.312c6.99,6.99,18.322,6.99,25.312,0l75.937-75.937l75.937,75.937 c6.989,6.99,18.322,6.99,25.312,0c6.99-6.99,6.99-18.322,0-25.312L131.804,106.491z"/>\n'+
+        '</svg>',
+        animation: 'fadeIn',
         animationDuration: '1000',
         animationTimingFunction: 'linear',
 
@@ -42,18 +99,12 @@
             let settings = $.extend({}, defaultSettings, options);
 
             return this.each(function() {
-                let trigger = $(this);
+                let triggers = $(this);
 
-                // console.log($(this));
-
-                // selector = getSelectorString(trigger);
-
-                // $(document).on('click', selector, function (e) {
-                //     openModal(settings);
-                // });
-                trigger.on('click', function (e) {
-                    // openModal(settings);
-                    console.log('clicked');
+                triggers.on('click', settings, function(e) {
+                    let trigger = $(this);
+                    
+                    openModal(settings, trigger, e);
                 });
             });
         },
@@ -63,12 +114,56 @@
     };
 
     //inner functions:
-    function getSelectorString(obj) {
-        
+    function createModal(settings, trigger) {
+        let src = settings.src || trigger.attr('aa-modal-src'),
+            aaModalOverlay = $('<div class="aa-modal"></div>'),
+            aaModalBody = $('<div class="aa-modal__body"></div>'),
+            aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>'),
+            moreCloseBtns,
+            modalContent;
+
+        if (src === undefined) {
+            $.error('Modal content source is not specified');
+            // error = 'Modal content source is not specified';
+        }
+
+        if (settings.closeBtn instanceof $) {
+            // set additional close button(s)
+            moreCloseBtns = settings.closeBtn;
+            settings.closeBtn = defaultSettings.closeBtn;
+        } else if (typeof settings.closeBtn !== 'string') {
+            $.error('False type of closeBtn property in settings');
+            // error = 'False type of closeBtn property in settings';
+        }
+
+        aaModalCloseBtn.html(settings.closeBtn);
+        aaModalBody.append(aaModalCloseBtn);
+        aaModalOverlay.append(aaModalBody);
+        $('body').append(aaModalOverlay).addClass('aa-modal-open');
     }
 
-    function openModal(settings) {
-        
+    function openModal(settings, trigger, e) {
+        if (typeof defaultSettings.onOpenStart == 'function') {
+            settings.onOpenStart(e, trigger);
+        };
+
+        createModal(settings, trigger);
+        addStyle(settings);
+
+        if (typeof defaultSettings.onOpenEnd == 'function') {
+            settings.onOpenEnd(e, trigger);
+        };
+    }
+    
+    function addStyle(settings) {
+        let style = createStyle(settings);
+
+        $('head').prepend(style);
+    }
+
+    function createStyle(settings) {
+        styleTag.text(modalStyle);
+        return styleTag;
     }
 
     $.fn.aamodal = function(optionsOrMethod) {
@@ -77,8 +172,8 @@
         } else if (typeof optionsOrMethod === 'object' || !optionsOrMethod) {
             return methods.init.apply(this, arguments); // default to methods[init]
         } else {
-            // $.error('Method ' +  optionsOrMethod + ' does not exist on AA Modal');
-            error = 'Unknown AA Modal method called';
+            $.error('Method ' +  optionsOrMethod + ' does not exist in AA Modal');
+            // error = 'Unknown AA Modal method called';
         }  
     };
 }));
