@@ -37,9 +37,9 @@
                 'left: 50%;\n'+
                 'width: calc(100vw - 40px);\n'+
                 'max-width: 600px;\n'+
-                'height: calc(100vh - 40px);\n'+
-                'max-height: 600px;\n'+
-                'padding: 60px 20px;\n'+
+                'height: auto;\n'+
+                'max-height: calc(100vh - 40px);\n'+
+                'padding: 55px 30px 45px;\n'+
                 'background-color: #fff;\n'+
                 'border-radius: 5px;\n'+
                 'transform: translate(-50%, -50%);\n'+
@@ -96,7 +96,7 @@
     //methods:
     let methods = {
         init : function(options) {
-            let settings = $.extend({}, defaultSettings, options);
+            let settings = $.extend(true, {}, defaultSettings, options);
 
             return this.each(function() {
                 let triggers = $(this);
@@ -115,12 +115,11 @@
 
     //inner functions:
     function createModal(settings, trigger) {
-        let src = settings.src || trigger.attr('aa-modal-src'),
+        let src = settings.src || trigger.attr('aa-modal-src').toString(),
             aaModalOverlay = $('<div class="aa-modal"></div>'),
             aaModalBody = $('<div class="aa-modal__body"></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>'),
-            moreCloseBtns,
-            modalContent;
+            moreCloseBtns;
 
         if (src === undefined) {
             $.error('Modal content source is not specified');
@@ -136,10 +135,35 @@
             // error = 'False type of closeBtn property in settings';
         }
 
+        // console.log(moreCloseBtns);
+
         aaModalCloseBtn.html(settings.closeBtn);
         aaModalBody.append(aaModalCloseBtn);
+
+        if (settings.id)
+            aaModalBody.prop('id', settings.id);
+
+        if (settings.class)
+            aaModalBody.addClass(settings.class);
+
+        getModalContent(src, aaModalBody);
         aaModalOverlay.append(aaModalBody);
-        $('body').append(aaModalOverlay).addClass('aa-modal-open');
+
+        aaModalOverlay.on('click', function(e) {
+            console.log(e.target);
+            if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0) {
+                //call the close method
+                console.log('time to close');
+            } else if (moreCloseBtns !== undefined && (moreCloseBtns.is(e.target) || moreCloseBtns.has(e.target).length !== 0)) {
+                //call the close method
+                console.log('time to close');
+            } else if ($(defaultCloseTriggers).is(e.target) || $(defaultCloseTriggers).has(e.target).length !== 0) {
+                //call the close method
+                console.log('time to close');
+            };
+        });
+        
+        return aaModalOverlay;
     }
 
     function openModal(settings, trigger, e) {
@@ -147,8 +171,13 @@
             settings.onOpenStart(e, trigger);
         };
 
-        createModal(settings, trigger);
+        modalIsLoading = true;
+
+        let modal = createModal(settings, trigger);
         addStyle(settings);
+        $('body').append(modal).addClass('aa-modal-open');
+
+        modalIsLoading = false;
 
         if (typeof defaultSettings.onOpenEnd == 'function') {
             settings.onOpenEnd(e, trigger);
@@ -166,11 +195,35 @@
         return styleTag;
     }
 
+    function getModalContent(src, modalBody) {
+        let content;
+
+        $.ajax({
+            url: src,
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            timeout: 15000,
+            success: function(data) {
+                modalBody.append(data);
+            },
+            error: function(obj, err) {
+                if (err == 'timeout') {
+                    $.error('Request failed: timeout');
+                    // error = 'Request failed: timeout';
+                } else {
+                    $.error('Request failed: ' + obj.responseText);
+                    // error = 'Request failed: ' + obj.responseText;
+                }
+            }
+        });
+    }
+
     $.fn.aamodal = function(optionsOrMethod) {
         if (methods[optionsOrMethod]) {
             return methods[optionsOrMethod].apply(this, Array.prototype.slice.call(arguments, 1));
         } else if (typeof optionsOrMethod === 'object' || !optionsOrMethod) {
-            return methods.init.apply(this, arguments); // default to methods[init]
+            return methods.init.apply(this, arguments);
         } else {
             $.error('Method ' +  optionsOrMethod + ' does not exist in AA Modal');
             // error = 'Unknown AA Modal method called';
