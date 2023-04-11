@@ -74,16 +74,27 @@
             '}\n'+
         '';
 
+    //errors object:
+    const errors = {
+        0: 'Reserved',
+        1: 'Wrong option data type',
+        2: 'Option is not a valid number',
+        3: 'Modal content source is not specified',
+        //to be continued
+    }
+
     //default settings:
     let defaultSettings = {
         src: false,
         id: false,
         class: false,
-        closeBtn: '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 212.982 212.982" style="enable-background:new 0 0 212.982 212.982;" xml:space="preserve">\n'+
+        closeBtnText: '<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 212.982 212.982" style="enable-background:new 0 0 212.982 212.982;" xml:space="preserve">\n'+
             '<path fill="#000000" d="M131.804,106.491l75.936-75.936c6.99-6.99,6.99-18.323,0-25.312 c-6.99-6.99-18.322-6.99-25.312,0l-75.937,75.937L30.554,5.242c-6.99-6.99-18.322-6.99-25.312,0c-6.989,6.99-6.989,18.323,0,25.312 l75.937,75.936L5.242,182.427c-6.989,6.99-6.989,18.323,0,25.312c6.99,6.99,18.322,6.99,25.312,0l75.937-75.937l75.937,75.937 c6.989,6.99,18.322,6.99,25.312,0c6.99-6.99,6.99-18.322,0-25.312L131.804,106.491z"/>\n'+
         '</svg>',
+        closeBtnExternal: false,
+        closeBtnSelector: false,
         animation: 'fadeIn',
-        animationDuration: '1000',
+        animationDuration: 1000,
         animationTimingFunction: 'linear',
 
         // callbacks:
@@ -97,6 +108,8 @@
     let methods = {
         init : function(options) {
             let settings = $.extend(true, {}, defaultSettings, options);
+
+            checkSettingsTypes(settings);
 
             return this.each(function() {
                 let triggers = $(this);
@@ -114,31 +127,63 @@
     };
 
     //inner functions:
+    function checkSettingsTypes(settings) {
+        for (let prop in settings) {
+            let type = typeof settings[prop];
+
+            if (settings[prop] === false)
+                continue;
+
+            switch(prop) {
+                case 'onOpenStart':
+                case 'onOpenEnd':
+                case 'onCloseStart':
+                case 'onCloseEnd':
+                    if (type !== 'function')
+                        throwError(1, prop);
+
+                    break;
+                case 'animationDuration':
+                    if (type !== 'string' && type !== 'number')
+                        throwError(1, prop);
+
+                    let int = parseInt(settings[prop]);
+
+                    if (!Number.isInteger(int))
+                        throwError(2, prop);
+
+                    break;
+                default:
+                    if (type !== 'string')
+                        throwError(1, prop);
+            }
+        }
+    }
+
+    function throwError(code, data = false) {
+        let errorText = errors[code];
+
+        if (data)
+            errorText += ' (' + data + ')';
+
+        return $.error(errorText);
+    }
+
     function createModal(settings, trigger) {
         let src = settings.src || trigger.attr('aa-modal-src').toString(),
+            closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
             aaModalOverlay = $('<div class="aa-modal"></div>'),
             aaModalBody = $('<div class="aa-modal__body"></div>'),
-            aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>'),
-            moreCloseBtns;
+            aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
-        if (src === undefined) {
-            $.error('Modal content source is not specified');
-            // error = 'Modal content source is not specified';
-        }
+        if (src === undefined)
+            throwError(3);
 
-        if (settings.closeBtn instanceof $) {
-            // set additional close button(s)
-            moreCloseBtns = settings.closeBtn;
-            settings.closeBtn = defaultSettings.closeBtn;
-        } else if (typeof settings.closeBtn !== 'string') {
-            $.error('False type of closeBtn property in settings');
-            // error = 'False type of closeBtn property in settings';
-        }
+        //TODO: get external svg
+        aaModalCloseBtn.html(settings.closeBtnText);
 
-        // console.log(moreCloseBtns);
-
-        aaModalCloseBtn.html(settings.closeBtn);
-        aaModalBody.append(aaModalCloseBtn);
+        if (settings.closeBtnText)
+            aaModalBody.append(aaModalCloseBtn);
 
         if (settings.id)
             aaModalBody.prop('id', settings.id);
@@ -154,14 +199,13 @@
             if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0) {
                 //call the close method
                 console.log('time to close');
-            } else if (moreCloseBtns !== undefined && (moreCloseBtns.is(e.target) || moreCloseBtns.has(e.target).length !== 0)) {
-                //call the close method
-                console.log('time to close');
-            } else if ($(defaultCloseTriggers).is(e.target) || $(defaultCloseTriggers).has(e.target).length !== 0) {
-                //call the close method
-                console.log('time to close');
-            };
+            }
         });
+
+        aaModalBody.on('click', closeBtns, function() {
+            //call the close method
+            console.log('time to close');
+        })
         
         return aaModalOverlay;
     }

@@ -5,9 +5,11 @@ $(function () {
         src: '/ajax/modal-3.html',
         id: 'altModal',
         class: 'aa-modal__body--alt',
-        closeBtn: $('.modal-content__button'), //or text, i.e. 'Close'
+        closeBtnSelector: '.modal-content__button',
+        closeBtnExternal: false, //TODO: path to svg
+        //closeBtnText: false, //false deletes the default button
         animation: 'fromTop',
-        animationDuration: 3000,
+        animationDuration: 2500,
         animationTimingFunction: 'ease-in-out',
         onOpenStart: function(event, trigger) {
             // console.log(event);
