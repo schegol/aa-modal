@@ -13,6 +13,11 @@ gulp.task('jsToDemo', function() {
     .pipe(gulp.dest('demo/js'));
 });
 
+gulp.task('images', function() {
+  return gulp.src('source/img/*.{png,jpg,svg}')
+    .pipe(gulp.dest('demo/img'));
+});
+
 gulp.task('jsToDist', function() {
   return gulp.src('source/js/aa-modal.js')
 	.pipe(gulp.dest('dist'))
@@ -33,6 +38,7 @@ gulp.task('server', function () {
   gulp.watch('source/js/*.js', gulp.series('jsToDemo', 'jsToDist', 'refresh'));
   gulp.watch('source/*.html', gulp.series('html', 'refresh'));
   gulp.watch('source/ajax/*.html', gulp.series('ajax', 'refresh'));
+  gulp.watch('source/img/**/*.{svg,png,jpg,webp}', gulp.series('images', 'refresh'));
 });
 
 gulp.task('refresh', function (done) {
@@ -64,6 +70,7 @@ gulp.task('build', gulp.series(
 	'cleanDist',
 	'jsToDemo',
 	'jsToDist',
+	'images',
 	'html',
 	'ajax',
 ));

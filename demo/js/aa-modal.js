@@ -11,8 +11,7 @@
 }(function($) {
     'use strict';
 
-    let error = null,
-        modalIsLoading = false,
+    let modalIsLoading = false,
         modalIsOpen = false,
         defaultOpenTriggers = '[aa-modal]',
         defaultCloseTriggers = '[aa-modal-close]',
@@ -77,9 +76,13 @@
     //errors object:
     const errors = {
         0: 'Reserved',
-        1: 'Wrong option data type',
-        2: 'Option is not a valid number',
-        3: 'Modal content source is not specified',
+        1: 'Method does not exist in AA Modal',
+        2: 'Wrong option data type',
+        3: 'Option is not a valid number',
+        4: 'Modal content source is not specified',
+        5: 'External button request failed',
+        6: 'External button file contains invalid data',
+        7: 'Modal content request failed',
         //to be continued
     }
 
@@ -140,22 +143,22 @@
                 case 'onCloseStart':
                 case 'onCloseEnd':
                     if (type !== 'function')
-                        throwError(1, prop);
+                        throwError(2, prop);
 
                     break;
                 case 'animationDuration':
                     if (type !== 'string' && type !== 'number')
-                        throwError(1, prop);
+                        throwError(2, prop);
 
                     let int = parseInt(settings[prop]);
 
                     if (!Number.isInteger(int))
-                        throwError(2, prop);
+                        throwError(3, prop);
 
                     break;
                 default:
                     if (type !== 'string')
-                        throwError(1, prop);
+                        throwError(2, prop);
             }
         }
     }
@@ -164,7 +167,7 @@
         let errorText = errors[code];
 
         if (data)
-            errorText += ' (' + data + ')';
+            errorText += ': ' + data;
 
         return $.error(errorText);
     }
@@ -177,10 +180,16 @@
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
         if (src === undefined)
-            throwError(3);
+            throwError(4);
 
-        //TODO: get external svg
-        aaModalCloseBtn.html(settings.closeBtnText);
+        if (settings.closeBtnExternal) {
+            applyExternalBtnContents(settings.closeBtnExternal, aaModalCloseBtn, defaultSettings.closeBtnText);
+        } else {
+            if (settings.closeBtnText)
+                aaModalCloseBtn.html(settings.closeBtnText);
+            else
+                aaModalCloseBtn.html(defaultSettings.closeBtnText);
+        }
 
         if (settings.closeBtnText)
             aaModalBody.append(aaModalCloseBtn);
@@ -221,7 +230,9 @@
         addStyle(settings);
         $('body').append(modal).addClass('aa-modal-open');
 
+        //TODO: promises
         modalIsLoading = false;
+        modalIsOpen = true;
 
         if (typeof defaultSettings.onOpenEnd == 'function') {
             settings.onOpenEnd(e, trigger);
@@ -236,12 +247,11 @@
 
     function createStyle(settings) {
         styleTag.text(modalStyle);
+
         return styleTag;
     }
 
     function getModalContent(src, modalBody) {
-        let content;
-
         $.ajax({
             url: src,
             dataType: 'html',
@@ -252,25 +262,50 @@
                 modalBody.append(data);
             },
             error: function(obj, err) {
-                if (err == 'timeout') {
-                    $.error('Request failed: timeout');
-                    // error = 'Request failed: timeout';
-                } else {
-                    $.error('Request failed: ' + obj.responseText);
-                    // error = 'Request failed: ' + obj.responseText;
-                }
+                if (err == 'timeout')
+                    throwError(7, err);
+                else
+                    throwError(7, obj.statusText);
             }
         });
     }
 
+    function applyExternalBtnContents(src, btnNode, defaultHtml) {
+        $.ajax({
+            url: src,
+            dataType: 'html',
+            contentType: false,
+            processData: false,
+            timeout: 15000,
+            success: function(data) {
+                let svg = $(data).filter('svg');
+
+                if (svg.length) {
+                    btnNode.html(svg);
+                } else {
+                    btnNode.html(defaultHtml);
+                    throwError(6);
+                }
+            },
+            error: function(obj, err) {
+                btnNode.html(defaultHtml);
+
+                if (err == 'timeout')
+                    throwError(5, err);
+                else
+                    throwError(5, obj.statusText);
+            }
+        });
+    }
+
+    //prototype:
     $.fn.aamodal = function(optionsOrMethod) {
         if (methods[optionsOrMethod]) {
             return methods[optionsOrMethod].apply(this, Array.prototype.slice.call(arguments, 1));
         } else if (typeof optionsOrMethod === 'object' || !optionsOrMethod) {
             return methods.init.apply(this, arguments);
         } else {
-            $.error('Method ' +  optionsOrMethod + ' does not exist in AA Modal');
-            // error = 'Unknown AA Modal method called';
+            throwError(1, optionsOrMethod);
         }  
     };
 }));
