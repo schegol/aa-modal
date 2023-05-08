@@ -135,7 +135,9 @@
                 triggers.on('click', settings, function(e) {
                     let trigger = $(this);
                     
-                    openModal(settings, trigger, e);
+                    if (!modalIsLoading) {
+                        openModal(settings, trigger, e);
+                    }
                 });
             });
         },
@@ -194,6 +196,8 @@
             aaModalBody = $('<div class="aa-modal__body"></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
+        //TODO: promises
+
         if (src === undefined)
             throwError(4);
 
@@ -215,6 +219,8 @@
         if (settings.class)
             aaModalBody.addClass(settings.class);
 
+        aaModalBody.addClass('aa-modal__body--loading');
+
         getModalContent(src, aaModalBody);
         aaModalOverlay.append(aaModalBody);
 
@@ -229,38 +235,65 @@
         aaModalBody.on('click', closeBtns, function() {
             //call the close method
             console.log('time to close');
-        })
-        
+        });
+
         return aaModalOverlay;
     }
 
     function openModal(settings, trigger, e) {
-        if (typeof defaultSettings.onOpenStart == 'function') {
-            settings.onOpenStart(e, trigger);
-        };
+        setOpenStart(settings, trigger, e).then(
+            makeNewModal
+        ).then(
+            addModalToDom
+        ).done(function() {
+            console.log('openModal chain: done');
+            modalIsLoading = false;
+            modalIsOpen = true;
+    
+            settings.onOpenEnd(e, trigger);
+        });
+    }
 
+    function setOpenStart(settings, trigger, e) {
+        console.log('openModal chain: setOpenStart');
+        let def = $.Deferred();
+
+        settings.onOpenStart(e, trigger);
         modalIsLoading = true;
+        def.resolve(settings, trigger); 
+
+        return def.promise();
+    }
+
+    function makeNewModal(settings, trigger) {
+        console.log('openModal chain: makeNewModal');
+        let def = $.Deferred();
 
         let modal = createModal(settings, trigger);
-        addStyle(settings);
+        def.resolve(modal);
+
+        return def.promise();
+    }
+
+    function addModalToDom(modal) {
+        console.log('openModal chain: addModalToDom');
+        let def = $.Deferred();
+
+        addStyle();
         $('body').append(modal).addClass('aa-modal-open');
-
-        //TODO: promises
-        modalIsLoading = false;
-        modalIsOpen = true;
-
-        if (typeof defaultSettings.onOpenEnd == 'function') {
-            settings.onOpenEnd(e, trigger);
-        };
+        modal.children().removeClass('aa-modal__body--loading');
+        def.resolve();
+        
+        return def.promise();
     }
     
-    function addStyle(settings) {
-        let style = createStyle(settings);
+    function addStyle() {
+        let style = createStyle();
 
         $('head').prepend(style);
     }
 
-    function createStyle(settings) {
+    function createStyle() {
         styleTag.text(modalStyle);
 
         return styleTag;
