@@ -47,6 +47,9 @@
                 'overflow-y: auto;\n'+
                 'z-index: 1000000;\n'+
             '}\n'+
+            '.aa-modal__body--loading {\n'+
+                'min-height: 200px;\n'+
+            '}\n'+
             '.aa-modal__body--loading::before {\n'+
                 'content: "";\n'+
                 'position: absolute;\n'+
@@ -190,7 +193,8 @@
     }
 
     function createModal(settings, trigger) {
-        let src = settings.src || trigger.attr('aa-modal-src').toString(),
+        let def = $.Deferred(),
+            src = settings.src || trigger.attr('aa-modal-src').toString(),
             closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
             aaModalOverlay = $('<div class="aa-modal"></div>'),
             aaModalBody = $('<div class="aa-modal__body"></div>'),
@@ -220,8 +224,6 @@
             aaModalBody.addClass(settings.class);
 
         aaModalBody.addClass('aa-modal__body--loading');
-
-        getModalContent(src, aaModalBody);
         aaModalOverlay.append(aaModalBody);
 
         aaModalOverlay.on('click', function(e) {
@@ -237,12 +239,16 @@
             console.log('time to close');
         });
 
-        return aaModalOverlay;
+        getModalContent(src, aaModalBody).done(function() {
+            def.resolve(aaModalOverlay);
+        });
+
+        return def.promise();
     }
 
     function openModal(settings, trigger, e) {
         setOpenStart(settings, trigger, e).then(
-            makeNewModal
+            createModal
         ).then(
             addModalToDom
         ).done(function() {
@@ -257,20 +263,10 @@
     function setOpenStart(settings, trigger, e) {
         console.log('openModal chain: setOpenStart');
         let def = $.Deferred();
-
+        
         settings.onOpenStart(e, trigger);
         modalIsLoading = true;
-        def.resolve(settings, trigger); 
-
-        return def.promise();
-    }
-
-    function makeNewModal(settings, trigger) {
-        console.log('openModal chain: makeNewModal');
-        let def = $.Deferred();
-
-        let modal = createModal(settings, trigger);
-        def.resolve(modal);
+        def.resolve(settings, trigger);
 
         return def.promise();
     }
@@ -281,8 +277,7 @@
 
         addStyle();
         $('body').append(modal).addClass('aa-modal-open');
-        modal.children().removeClass('aa-modal__body--loading');
-        def.resolve();
+        def.resolve(modal);
         
         return def.promise();
     }
@@ -300,14 +295,14 @@
     }
 
     function getModalContent(src, modalBody) {
-        $.ajax({
+        return $.ajax({
             url: src,
             dataType: 'html',
             contentType: false,
             processData: false,
-            timeout: 15000,
+            timeout: 10000,
             success: function(data) {
-                modalBody.append(data);
+                modalBody.append(data).removeClass('aa-modal__body--loading');
             },
             error: function(obj, err) {
                 if (err == 'timeout')
@@ -324,7 +319,7 @@
             dataType: 'html',
             contentType: false,
             processData: false,
-            timeout: 15000,
+            timeout: 10000,
             success: function(data) {
                 let svg = $(data).filter('svg');
 
