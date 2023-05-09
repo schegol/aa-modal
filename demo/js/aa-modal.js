@@ -193,66 +193,71 @@
     }
 
     function createModal(settings, trigger) {
-        let def = $.Deferred(),
+        let createModalDef = $.Deferred(),
             src = settings.src || trigger.attr('aa-modal-src').toString(),
             closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
             aaModalOverlay = $('<div class="aa-modal"></div>'),
             aaModalBody = $('<div class="aa-modal__body"></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
-        //TODO: promises
-
         if (src === undefined)
             throwError(4);
 
-        if (settings.closeBtnExternal) {
-            applyExternalBtnContents(settings.closeBtnExternal, aaModalCloseBtn, defaultSettings.closeBtnText);
+        if (modalIsOpen) {
+            aaModalOverlay = $('body').find('.aa-modal');
+            aaModalBody = aaModalOverlay.children();
+
+            aaModalBody.html('');
         } else {
-            if (settings.closeBtnText)
-                aaModalCloseBtn.html(settings.closeBtnText);
-            else
-                aaModalCloseBtn.html(defaultSettings.closeBtnText);
+            addStyle();
+            $('body').append(aaModalOverlay).addClass('aa-modal-open');
         }
 
-        if (settings.closeBtnText)
-            aaModalBody.append(aaModalCloseBtn);
+        prepareModalBody(settings, defaultSettings, aaModalCloseBtn, aaModalBody).then(function(modalBody) {
+            let def = $.Deferred();
 
-        if (settings.id)
-            aaModalBody.prop('id', settings.id);
+            aaModalOverlay.append(modalBody);
 
-        if (settings.class)
-            aaModalBody.addClass(settings.class);
+            def.resolve();
+            return def.promise();
+        }).then(function() {
+            let def = $.Deferred();
 
-        aaModalBody.addClass('aa-modal__body--loading');
-        aaModalOverlay.append(aaModalBody);
-
-        aaModalOverlay.on('click', function(e) {
-            console.log(e.target);
-            if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0) {
+            aaModalOverlay.on('click', function(e) {
+                if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0) {
+                    //call the close method
+                    console.log('time to close');
+                }
+            });
+    
+            aaModalBody.on('click', closeBtns, function() {
                 //call the close method
                 console.log('time to close');
-            }
-        });
+            });
 
-        aaModalBody.on('click', closeBtns, function() {
-            //call the close method
-            console.log('time to close');
-        });
+            //new modal call inside the one that's already open:
+            //TODO: make a way to add more selectors to trigger openModal() from inside?
+            aaModalOverlay.on('click', '[aa-modal]', function(e) {
+                aaModalOverlay.off();
+                aaModalBody.off();
+                openModal(settings, $(e.target), e);
+            });
 
-        getModalContent(src, aaModalBody).done(function() {
-            def.resolve(aaModalOverlay);
+            def.resolve();
+            return def.promise();
+        }).then(function() {
+            getModalContent(src, aaModalBody).done(function() {
+                createModalDef.resolve();
+            });
         });
-
-        return def.promise();
+      
+        return createModalDef.promise();
     }
 
     function openModal(settings, trigger, e) {
         setOpenStart(settings, trigger, e).then(
             createModal
-        ).then(
-            addModalToDom
         ).done(function() {
-            console.log('openModal chain: done');
             modalIsLoading = false;
             modalIsOpen = true;
     
@@ -261,25 +266,13 @@
     }
 
     function setOpenStart(settings, trigger, e) {
-        console.log('openModal chain: setOpenStart');
-        let def = $.Deferred();
+        let setOpenStartDef = $.Deferred();
         
         settings.onOpenStart(e, trigger);
         modalIsLoading = true;
-        def.resolve(settings, trigger);
+        setOpenStartDef.resolve(settings, trigger);
 
-        return def.promise();
-    }
-
-    function addModalToDom(modal) {
-        console.log('openModal chain: addModalToDom');
-        let def = $.Deferred();
-
-        addStyle();
-        $('body').append(modal).addClass('aa-modal-open');
-        def.resolve(modal);
-        
-        return def.promise();
+        return setOpenStartDef.promise();
     }
     
     function addStyle() {
@@ -292,6 +285,46 @@
         styleTag.text(modalStyle);
 
         return styleTag;
+    }
+
+    function prepareModalBody(settings, defaultSettings, modalCloseBtn, modalBody) {
+        let prepareModalBodyDef = $.Deferred();
+
+        modalBody.addClass('aa-modal__body--loading');
+
+        prepareCloseBtn(settings, defaultSettings, modalCloseBtn).then(function() {
+            if (settings.closeBtnText)
+                modalBody.append(modalCloseBtn);
+
+            if (settings.id)
+                modalBody.prop('id', settings.id);
+
+            if (settings.class)
+                modalBody.addClass(settings.class);
+
+            prepareModalBodyDef.resolve(modalBody);
+        });
+        
+        return prepareModalBodyDef.promise();
+    }
+
+    function prepareCloseBtn(settings, defaultSettings, modalCloseBtn) {
+        let prepareCloseBtnDef = $.Deferred();
+
+        if (settings.closeBtnExternal) {
+            applyExternalBtnContents(settings.closeBtnExternal, modalCloseBtn, defaultSettings.closeBtnText).done(function() {
+                prepareCloseBtnDef.resolve();
+            });
+        } else {
+            if (settings.closeBtnText)
+                modalCloseBtn.html(settings.closeBtnText);
+            else
+                modalCloseBtn.html(defaultSettings.closeBtnText);
+
+            prepareCloseBtnDef.resolve();
+        }
+
+        return prepareCloseBtnDef.promise();
     }
 
     function getModalContent(src, modalBody) {
@@ -314,7 +347,7 @@
     }
 
     function applyExternalBtnContents(src, btnNode, defaultHtml) {
-        $.ajax({
+        return $.ajax({
             url: src,
             dataType: 'html',
             contentType: false,

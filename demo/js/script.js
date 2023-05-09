@@ -7,7 +7,7 @@ $(function () {
         class: 'aa-modal__body--alt',
         closeBtnSelector: '.modal-content__button',
         closeBtnExternal: '/img/alt-close-btn.svg',
-        //closeBtnText: false, //false deletes the default button
+        //closeBtnText: false, //false deletes the corner button
         animation: 'fromTop',
         animationDuration: 2500,
         animationTimingFunction: 'ease-in-out',
