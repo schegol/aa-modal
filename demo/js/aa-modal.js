@@ -50,7 +50,7 @@
             '.aa-modal__body--loading {\n'+
                 'min-height: 200px;\n'+
             '}\n'+
-            '.aa-modal__body--loading::before {\n'+
+            '.aa-modal__body::before {\n'+
                 'content: "";\n'+
                 'position: absolute;\n'+
                 'top: 0;\n'+
@@ -62,6 +62,14 @@
                 'background-position: center;\n'+
                 'background-repeat: no-repeat;\n'+
                 'background-size: 120px 120px;\n'+
+                'opacity: 0;\n'+
+                'transition-delay: 0s, .3s;\n'+
+                'transition-duration: .3s, 0s;\n'+
+                'transition-property: opacity, z-index;\n'+
+                'z-index: -1;\n'+
+            '}\n'+
+            '.aa-modal__body--loading::before {\n'+
+                'opacity: 1;\n'+
                 'z-index: 2;\n'+
             '}\n'+
             '.aa-modal__close {\n'+
@@ -101,7 +109,6 @@
         5: 'External button request failed',
         6: 'External button file contains invalid data',
         7: 'Modal content request failed',
-        //to be continued
     }
 
     //default settings:
@@ -145,7 +152,10 @@
             });
         },
         close: function() {
-            console.log('close method called');
+            if (!modalIsLoading) {
+                // closeModal(settings);
+                console.log('close method called');
+            }
         }
     };
 
@@ -224,15 +234,50 @@
             let def = $.Deferred();
 
             aaModalOverlay.on('click', function(e) {
-                if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0) {
-                    //call the close method
-                    console.log('time to close');
+                if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0 && !modalIsLoading) {
+                    closeModal(settings, $(e.target), e);
                 }
             });
     
-            aaModalBody.on('click', closeBtns, function() {
-                //call the close method
-                console.log('time to close');
+            aaModalBody.on('click', closeBtns, function(e) {
+                if (!modalIsLoading)
+                    closeModal(settings, $(e.target), e);
+            });
+
+            aaModalBody.on('keydown', function(e) {
+                let modal = $(this),
+                    target = $(e.target),
+                    shiftIsPressed = e.shiftKey,
+                    focusableElements = 'a[href]:visible, area[href]:visible, input:visible:not([disabled]), select:visible:not([disabled]), textarea:visible:not([disabled]), button:visible:not([disabled]), iframe:visible, object:visible, embed:visible, [tabindex]:visible, [contenteditable]:visible',
+                    marginalElement,
+                    nextElement;
+
+                if (e.key === 'Tab') {
+                    if (shiftIsPressed) {
+                        marginalElement = modal.find(focusableElements).first();
+                        nextElement = modal.find(focusableElements).last();
+                    } else {
+                        marginalElement = modal.find(focusableElements).last();
+                        nextElement = modal.find(focusableElements).first();
+                    }
+
+                    if (marginalElement.length) {
+                        if (target.is(marginalElement)) {
+                            nextElement.focus();
+                            return false;
+                        } else {
+                            return true;
+                        }
+                    }
+
+                    return true;
+                }
+            });
+
+            $(document).on('keyup', function(e) {
+                if (modalIsOpen && (e.key === 'Escape' || e.key === 'Esc') && !modalIsLoading) {
+                    closeModal(settings, $(e.target), e);
+                }
             });
 
             //new modal call inside the one that's already open:
@@ -240,7 +285,9 @@
             aaModalOverlay.on('click', '[aa-modal]', function(e) {
                 aaModalOverlay.off();
                 aaModalBody.off();
-                openModal(settings, $(e.target), e);
+
+                if (!modalIsLoading)
+                    openModal(settings, $(e.target), e);
             });
 
             def.resolve();
@@ -254,6 +301,22 @@
         return createModalDef.promise();
     }
 
+    function deleteModal(settings) {
+        //TODO: settings usage
+        let deleteModalDef = $.Deferred(),
+            aaModalOverlay = $('body').find('.aa-modal'),
+            aaModalBody = aaModalOverlay.children('.aa-modal__body');
+
+        aaModalOverlay.off();
+        aaModalBody.off();
+
+        $('body').removeClass('aa-modal-open').find(aaModalOverlay).remove();
+        styleTag.remove();
+
+        deleteModalDef.resolve();
+        return deleteModalDef.promise();
+    }
+
     function openModal(settings, trigger, e) {
         setOpenStart(settings, trigger, e).then(
             createModal
@@ -265,6 +328,17 @@
         });
     }
 
+    function closeModal(settings, trigger, e) {
+        setCloseStart(settings, trigger, e).then(
+            deleteModal
+        ).done(function() {
+            modalIsLoading = false;
+            modalIsOpen = false;
+    
+            settings.onCloseEnd(e, trigger);
+        });
+    }
+
     function setOpenStart(settings, trigger, e) {
         let setOpenStartDef = $.Deferred();
         
@@ -273,6 +347,16 @@
         setOpenStartDef.resolve(settings, trigger);
 
         return setOpenStartDef.promise();
+    }
+
+    function setCloseStart(settings, trigger, e) {
+        let setCloseStartDef = $.Deferred();
+        
+        settings.onCloseStart(e, trigger);
+        modalIsLoading = true;
+        setCloseStartDef.resolve(settings);
+
+        return setCloseStartDef.promise();
     }
     
     function addStyle() {
