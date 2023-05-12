@@ -99,6 +99,62 @@
             '}\n'+
         '';
 
+    //animations object:
+    const animations = {
+        fadeIn: {
+            classes: {
+                overlay: ' aa-modal--animated',
+                modal: ' aa-modal__body--animated aa-modal__body--fade-in',
+            },
+            functions: {
+                open: function(modalBody, duration) {
+                    let def = $.Deferred();
+
+                    modalBody.fadeIn(duration, function() {
+                        def.resolve();
+                    });
+                    
+                    return def.promise();
+                },
+                close: function(modalBody, duration) {
+                    let def = $.Deferred();
+
+                    modalBody.fadeOut(duration, function() {
+                        def.resolve();
+                    });
+
+                    return def.promise();
+                }
+            }
+        },
+        fromTop: {
+            classes: {
+                overlay: ' aa-modal--animated',
+                modal: ' aa-modal__body--animated aa-modal__body--from-top',
+            },
+            functions: {
+                open: function(modalBody, duration) {
+                    let def = $.Deferred();
+
+                    modalBody.show().animate({top: '50%'}, duration, function() {
+                        def.resolve();
+                    });
+
+                    return def.promise();
+                },
+                close: function(modalBody, duration) {
+                    let def = $.Deferred();
+
+                    modalBody.animate({top: '-' + ($(window).innerHeight() / 2) + 'px'}, duration, function() {
+                        def.resolve();
+                    });
+
+                    return def.promise();
+                }
+            }
+        },
+    }
+
     //errors object:
     const errors = {
         0: 'Reserved',
@@ -109,6 +165,7 @@
         5: 'External button request failed',
         6: 'External button file contains invalid data',
         7: 'Modal content request failed',
+        8: 'Option value is not supported',
     }
 
     //default settings:
@@ -121,9 +178,8 @@
         '</svg>',
         closeBtnExternal: false,
         closeBtnSelector: false,
-        animation: 'fadeIn',
-        animationDuration: 1000,
-        animationTimingFunction: 'linear',
+        animation: false,
+        animationDuration: 500,
 
         // callbacks:
         onOpenStart: function() {},
@@ -176,6 +232,14 @@
                         throwError(2, prop);
 
                     break;
+                case 'animation':
+                    if (type !== 'string')
+                        throwError(2, prop);
+
+                    if ((settings[prop] in animations) === false)
+                        throwError(8, settings[prop]);
+
+                    break;
                 case 'animationDuration':
                     if (type !== 'string' && type !== 'number')
                         throwError(2, prop);
@@ -206,8 +270,8 @@
         let createModalDef = $.Deferred(),
             src = settings.src || trigger.attr('aa-modal-src').toString(),
             closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
-            aaModalOverlay = $('<div class="aa-modal"></div>'),
-            aaModalBody = $('<div class="aa-modal__body"></div>'),
+            aaModalOverlay = $('<div class="aa-modal' + (settings.animation === false ? '' : animations[settings.animation].classes.overlay) + '"></div>'),
+            aaModalBody = $('<div class="aa-modal__body' + (settings.animation === false ? '' : animations[settings.animation].classes.modal) + '"' + (settings.animation === false ? '' : ' style="display: none;"') + '></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
         if (src === undefined)
@@ -228,7 +292,14 @@
 
             aaModalOverlay.append(modalBody);
 
-            def.resolve();
+            if (settings.animation) {
+                animations[settings.animation].functions.open(modalBody, settings.animationDuration).then(function() {
+                    def.resolve();
+                });
+            } else {
+                def.resolve();
+            }
+
             return def.promise();
         }).then(function() {
             let def = $.Deferred();
@@ -293,7 +364,7 @@
             def.resolve();
             return def.promise();
         }).then(function() {
-            getModalContent(src, aaModalBody).done(function() {
+            getModalContent(src, aaModalBody).then(function() {
                 createModalDef.resolve();
             });
         });
@@ -307,20 +378,32 @@
             aaModalOverlay = $('body').find('.aa-modal'),
             aaModalBody = aaModalOverlay.children('.aa-modal__body');
 
-        aaModalOverlay.off();
-        aaModalBody.off();
+        deleteEventHandlers(aaModalOverlay, aaModalBody).then(function() {
+            let def = $.Deferred();
 
-        $('body').removeClass('aa-modal-open').find(aaModalOverlay).remove();
-        styleTag.remove();
+            if (settings.animation) {
+                animations[settings.animation].functions.close(aaModalBody, settings.animationDuration).then(function() {
+                    def.resolve();
+                });
+            } else {
+                def.resolve();
+            }
 
-        deleteModalDef.resolve();
+            return def.promise();
+        }).then(function() {
+            $('body').removeClass('aa-modal-open').find(aaModalOverlay).remove();
+            styleTag.remove();
+
+            deleteModalDef.resolve();
+        });
+
         return deleteModalDef.promise();
     }
 
     function openModal(settings, trigger, e) {
         setOpenStart(settings, trigger, e).then(
             createModal
-        ).done(function() {
+        ).then(function() {
             modalIsLoading = false;
             modalIsOpen = true;
     
@@ -331,7 +414,7 @@
     function closeModal(settings, trigger, e) {
         setCloseStart(settings, trigger, e).then(
             deleteModal
-        ).done(function() {
+        ).then(function() {
             modalIsLoading = false;
             modalIsOpen = false;
     
@@ -344,8 +427,8 @@
         
         settings.onOpenStart(e, trigger);
         modalIsLoading = true;
-        setOpenStartDef.resolve(settings, trigger);
 
+        setOpenStartDef.resolve(settings, trigger);
         return setOpenStartDef.promise();
     }
 
@@ -354,9 +437,19 @@
         
         settings.onCloseStart(e, trigger);
         modalIsLoading = true;
-        setCloseStartDef.resolve(settings);
 
+        setCloseStartDef.resolve(settings);
         return setCloseStartDef.promise();
+    }
+
+    function deleteEventHandlers(modalOverlay, modalBody) {
+        let deleteEventHandlersDef = $.Deferred();
+
+        modalOverlay.off();
+        modalBody.off();
+
+        deleteEventHandlersDef.resolve();
+        return deleteEventHandlersDef.promise();
     }
     
     function addStyle() {
@@ -396,7 +489,7 @@
         let prepareCloseBtnDef = $.Deferred();
 
         if (settings.closeBtnExternal) {
-            applyExternalBtnContents(settings.closeBtnExternal, modalCloseBtn, defaultSettings.closeBtnText).done(function() {
+            applyExternalBtnContents(settings.closeBtnExternal, modalCloseBtn, defaultSettings.closeBtnText).then(function() {
                 prepareCloseBtnDef.resolve();
             });
         } else {
