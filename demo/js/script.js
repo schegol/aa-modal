@@ -13,6 +13,7 @@ $(function () {
         // animation: 'fadeIn',
         animation: 'fromTop',
         animationDuration: 650,
+        overlayFadeDuration: 250, //false is equal to 0 ms
         onOpenStart: function(event, trigger) {
             console.log('onOpenStart');
         },

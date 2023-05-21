@@ -180,6 +180,7 @@
         closeBtnSelector: false,
         animation: false,
         animationDuration: 500,
+        overlayFadeDuration: 200,
 
         // callbacks:
         onOpenStart: function() {},
@@ -241,6 +242,7 @@
 
                     break;
                 case 'animationDuration':
+                case 'overlayFadeDuration':
                     if (type !== 'string' && type !== 'number')
                         throwError(2, prop);
 
@@ -268,23 +270,34 @@
 
     function createModal(settings, trigger) {
         let createModalDef = $.Deferred(),
-            src = settings.src || trigger.attr('aa-modal-src').toString(),
+            src = trigger.attr('aa-modal-src') !== undefined ? trigger.attr('aa-modal-src').toString() : settings.src,
             closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
-            aaModalOverlay = $('<div class="aa-modal' + (settings.animation === false ? '' : animations[settings.animation].classes.overlay) + '"></div>'),
+            aaModalOverlay = $('<div class="aa-modal' + (settings.overlayFadeDuration == false ? '' : ' aa-modal--fade') + '"' + (settings.overlayFadeDuration == false ? '' : ' style="display: none;"') + '></div>'),
             aaModalBody = $('<div class="aa-modal__body' + (settings.animation === false ? '' : animations[settings.animation].classes.modal) + '"' + (settings.animation === false ? '' : ' style="display: none;"') + '></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
         if (src === undefined)
             throwError(4);
 
+        //TODO: include into promise chain:
         if (modalIsOpen) {
             aaModalOverlay = $('body').find('.aa-modal');
             aaModalBody = aaModalOverlay.children();
 
-            aaModalBody.html('');
+            if (settings.animation) {
+                animations[settings.animation].functions.close(aaModalBody, settings.animationDuration).then(function() {
+                    aaModalBody.html('');
+                });
+            } else {
+                aaModalBody.html('');
+            }
         } else {
             addStyle();
             $('body').append(aaModalOverlay).addClass('aa-modal-open');
+
+            if (settings.overlayFadeDuration) {
+                aaModalOverlay.fadeIn(settings.overlayFadeDuration);
+            }
         }
 
         prepareModalBody(settings, defaultSettings, aaModalCloseBtn, aaModalBody).then(function(modalBody) {
@@ -353,7 +366,7 @@
 
             //new modal call inside the one that's already open:
             //TODO: make a way to add more selectors to trigger openModal() from inside?
-            aaModalOverlay.on('click', '[aa-modal]', function(e) {
+            aaModalOverlay.on('click', defaultOpenTriggers, function(e) {
                 aaModalOverlay.off();
                 aaModalBody.off();
 
@@ -373,7 +386,6 @@
     }
 
     function deleteModal(settings) {
-        //TODO: settings usage
         let deleteModalDef = $.Deferred(),
             aaModalOverlay = $('body').find('.aa-modal'),
             aaModalBody = aaModalOverlay.children('.aa-modal__body');
@@ -391,7 +403,21 @@
 
             return def.promise();
         }).then(function() {
-            $('body').removeClass('aa-modal-open').find(aaModalOverlay).remove();
+            let def = $.Deferred();
+
+            if (settings.overlayFadeDuration) {
+                aaModalOverlay.fadeOut(settings.overlayFadeDuration, function() {
+                    aaModalOverlay.remove();
+
+                    def.resolve();
+                });
+            } else {
+                aaModalOverlay.remove();
+            }
+
+            return def.promise();
+        }).then(function() {
+            $('body').removeClass('aa-modal-open');
             styleTag.remove();
 
             deleteModalDef.resolve();
