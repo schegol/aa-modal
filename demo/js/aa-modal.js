@@ -166,6 +166,7 @@
         6: 'External button file contains invalid data',
         7: 'Modal content request failed',
         8: 'Option value is not supported',
+        9: 'Something went wrong during modal creating',
     }
 
     //default settings:
@@ -273,115 +274,161 @@
             src = trigger.attr('aa-modal-src') !== undefined ? trigger.attr('aa-modal-src').toString() : settings.src,
             closeBtns = defaultCloseTriggers + ', ' + settings.closeBtnSelector,
             aaModalOverlay = $('<div class="aa-modal' + (settings.overlayFadeDuration == false ? '' : ' aa-modal--fade') + '"' + (settings.overlayFadeDuration == false ? '' : ' style="display: none;"') + '></div>'),
-            aaModalBody = $('<div class="aa-modal__body' + (settings.animation === false ? '' : animations[settings.animation].classes.modal) + '"' + (settings.animation === false ? '' : ' style="display: none;"') + '></div>'),
+            aaModalBody = $('<div class="aa-modal__body aa-modal__body--loading' + (settings.animation === false ? '' : animations[settings.animation].classes.modal) + '"' + (settings.animation === false ? '' : ' style="display: none;"') + '></div>'),
             aaModalCloseBtn = $('<button class="aa-modal__close" type="button" aa-modal-close=""></button>');
 
         if (src === undefined)
             throwError(4);
 
-        //TODO: include into promise chain:
-        if (modalIsOpen) {
-            aaModalOverlay = $('body').find('.aa-modal');
-            aaModalBody = aaModalOverlay.children();
+        const mainChain = function() {
+            let mainChainDef = $.Deferred();
 
-            if (settings.animation) {
-                animations[settings.animation].functions.close(aaModalBody, settings.animationDuration).then(function() {
-                    aaModalBody.html('');
-                });
-            } else {
-                aaModalBody.html('');
-            }
-        } else {
-            addStyle();
-            $('body').append(aaModalOverlay).addClass('aa-modal-open');
+            $.when().then(function() {
+                let def = $.Deferred();
 
-            if (settings.overlayFadeDuration) {
-                aaModalOverlay.fadeIn(settings.overlayFadeDuration);
-            }
-        }
+                if (settings.overlayFadeDuration) {
+                    aaModalOverlay.fadeIn(settings.overlayFadeDuration, function() {
+                        def.resolve();
+                    });
+                } else {
+                    def.resolve();
+                }
 
-        prepareModalBody(settings, defaultSettings, aaModalCloseBtn, aaModalBody).then(function(modalBody) {
-            let def = $.Deferred();
-
-            aaModalOverlay.append(modalBody);
-
-            if (settings.animation) {
-                animations[settings.animation].functions.open(modalBody, settings.animationDuration).then(function() {
+                return def.promise();
+            }).then(function() {
+                let def = $.Deferred();
+        
+                prepareCloseBtn(settings, defaultSettings, aaModalCloseBtn).then(function() {
+                    if (settings.closeBtnText)
+                        aaModalBody.append(aaModalCloseBtn);
+        
+                    if (settings.id)
+                        aaModalBody.prop('id', settings.id);
+        
+                    if (settings.class)
+                        aaModalBody.addClass(settings.class);
+        
                     def.resolve();
                 });
+                
+                return def.promise();
+            }).then(function() {
+                let def = $.Deferred();
+
+                aaModalOverlay.append(aaModalBody);
+
+                if (settings.animation) {
+                    animations[settings.animation].functions.open(aaModalBody, settings.animationDuration).then(function() {
+                        def.resolve();
+                    });
+                } else {
+                    def.resolve();
+                }
+
+                return def.promise();
+            }).then(function() {
+                let def = $.Deferred();
+
+                aaModalOverlay.on('click', function(e) {
+                    if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0 && !modalIsLoading) {
+                        closeModal(settings, $(e.target), e);
+                    }
+                });
+        
+                aaModalBody.on('click', closeBtns, function(e) {
+                    if (!modalIsLoading)
+                        closeModal(settings, $(e.target), e);
+                });
+
+                aaModalBody.on('keydown', function(e) {
+                    let modal = $(this),
+                        target = $(e.target),
+                        shiftIsPressed = e.shiftKey,
+                        focusableElements = 'a[href]:visible, area[href]:visible, input:visible:not([disabled]), select:visible:not([disabled]), textarea:visible:not([disabled]), button:visible:not([disabled]), iframe:visible, object:visible, embed:visible, [tabindex]:visible, [contenteditable]:visible',
+                        marginalElement,
+                        nextElement;
+
+                    if (e.key === 'Tab') {
+                        if (shiftIsPressed) {
+                            marginalElement = modal.find(focusableElements).first();
+                            nextElement = modal.find(focusableElements).last();
+                        } else {
+                            marginalElement = modal.find(focusableElements).last();
+                            nextElement = modal.find(focusableElements).first();
+                        }
+
+                        if (marginalElement.length) {
+                            if (target.is(marginalElement)) {
+                                nextElement.focus();
+                                return false;
+                            } else {
+                                return true;
+                            }
+                        }
+
+                        return true;
+                    }
+                });
+
+                $(document).on('keyup', function(e) {
+                    if (modalIsOpen && (e.key === 'Escape' || e.key === 'Esc') && !modalIsLoading) {
+                        closeModal(settings, $(e.target), e);
+                    }
+                });
+
+                //new modal call inside the one that's already open:
+                //TODO: make a way to add more selectors to trigger openModal() from inside?
+                aaModalOverlay.on('click', defaultOpenTriggers, function(e) {
+                    aaModalOverlay.off();
+                    aaModalBody.off();
+
+                    if (!modalIsLoading)
+                        openModal(settings, $(e.target), e);
+                });
+
+                def.resolve();
+                return def.promise();
+            }).then(function() {
+                mainChainDef.resolve();
+            });
+
+            return mainChainDef.promise();
+        }
+
+        $.when().then(function() {
+            let def = $.Deferred();
+
+            if (modalIsOpen) {
+                aaModalOverlay = $('body').find('.aa-modal');
+                aaModalBody = aaModalOverlay.children();
+    
+                if (settings.animation) {
+                    animations[settings.animation].functions.close(aaModalBody, settings.animationDuration).then(function() {
+                        aaModalBody.html('').addClass('aa-modal__body--loading');
+
+                        def.resolve();
+                    });
+                } else {
+                    aaModalBody.html('');
+
+                    def.resolve();
+                }
             } else {
+                addStyle();
+                $('body').append(aaModalOverlay).addClass('aa-modal-open');
+    
                 def.resolve();
             }
 
             return def.promise();
         }).then(function() {
-            let def = $.Deferred();
-
-            aaModalOverlay.on('click', function(e) {
-                if (!aaModalBody.is(e.target) && aaModalBody.has(e.target).length === 0 && !modalIsLoading) {
-                    closeModal(settings, $(e.target), e);
-                }
-            });
-    
-            aaModalBody.on('click', closeBtns, function(e) {
-                if (!modalIsLoading)
-                    closeModal(settings, $(e.target), e);
-            });
-
-            aaModalBody.on('keydown', function(e) {
-                let modal = $(this),
-                    target = $(e.target),
-                    shiftIsPressed = e.shiftKey,
-                    focusableElements = 'a[href]:visible, area[href]:visible, input:visible:not([disabled]), select:visible:not([disabled]), textarea:visible:not([disabled]), button:visible:not([disabled]), iframe:visible, object:visible, embed:visible, [tabindex]:visible, [contenteditable]:visible',
-                    marginalElement,
-                    nextElement;
-
-                if (e.key === 'Tab') {
-                    if (shiftIsPressed) {
-                        marginalElement = modal.find(focusableElements).first();
-                        nextElement = modal.find(focusableElements).last();
-                    } else {
-                        marginalElement = modal.find(focusableElements).last();
-                        nextElement = modal.find(focusableElements).first();
-                    }
-
-                    if (marginalElement.length) {
-                        if (target.is(marginalElement)) {
-                            nextElement.focus();
-                            return false;
-                        } else {
-                            return true;
-                        }
-                    }
-
-                    return true;
-                }
-            });
-
-            $(document).on('keyup', function(e) {
-                if (modalIsOpen && (e.key === 'Escape' || e.key === 'Esc') && !modalIsLoading) {
-                    closeModal(settings, $(e.target), e);
-                }
-            });
-
-            //new modal call inside the one that's already open:
-            //TODO: make a way to add more selectors to trigger openModal() from inside?
-            aaModalOverlay.on('click', defaultOpenTriggers, function(e) {
-                aaModalOverlay.off();
-                aaModalBody.off();
-
-                if (!modalIsLoading)
-                    openModal(settings, $(e.target), e);
-            });
-
-            def.resolve();
-            return def.promise();
-        }).then(function() {
-            getModalContent(src, aaModalBody).then(function() {
+            $.when(mainChain(), getModalContent(src, aaModalBody)).done(function() {
                 createModalDef.resolve();
+            }).fail(function(err) {
+                throwError(9, err);
             });
         });
-      
+
         return createModalDef.promise();
     }
 
@@ -488,27 +535,6 @@
         styleTag.text(modalStyle);
 
         return styleTag;
-    }
-
-    function prepareModalBody(settings, defaultSettings, modalCloseBtn, modalBody) {
-        let prepareModalBodyDef = $.Deferred();
-
-        modalBody.addClass('aa-modal__body--loading');
-
-        prepareCloseBtn(settings, defaultSettings, modalCloseBtn).then(function() {
-            if (settings.closeBtnText)
-                modalBody.append(modalCloseBtn);
-
-            if (settings.id)
-                modalBody.prop('id', settings.id);
-
-            if (settings.class)
-                modalBody.addClass(settings.class);
-
-            prepareModalBodyDef.resolve(modalBody);
-        });
-        
-        return prepareModalBodyDef.promise();
     }
 
     function prepareCloseBtn(settings, defaultSettings, modalCloseBtn) {

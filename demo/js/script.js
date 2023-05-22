@@ -12,7 +12,7 @@ $(function () {
         //closeBtnText: false, //false deletes the corner button
         // animation: 'fadeIn',
         animation: 'fromTop',
-        animationDuration: 650,
+        animationDuration: 350,
         overlayFadeDuration: 250, //false is equal to 0 ms
         onOpenStart: function(event, trigger) {
             console.log('onOpenStart');
