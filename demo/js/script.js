@@ -1,4 +1,4 @@
-$(function () {
+$(function() {
     //default modal call:
     $('[aa-modal]').aamodal();
 
@@ -9,10 +9,10 @@ $(function () {
         class: 'aa-modal__body--alt',
         closeBtnSelector: '.modal-content__button',
         closeBtnExternal: '/img/alt-close-btn.svg',
-        //closeBtnText: false, //false deletes the corner button
+        // closeBtnText: false, //false deletes the corner button
         animation: 'fromTop',
         animationDuration: 200,
-        overlayFadeDuration: 150, //false is equal to 0 ms
+        overlayFadeDuration: 150,
         onOpenStart: function(event, trigger) {
             console.log('onOpenStart');
         },
