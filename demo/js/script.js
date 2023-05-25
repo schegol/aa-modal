@@ -10,10 +10,9 @@ $(function () {
         closeBtnSelector: '.modal-content__button',
         closeBtnExternal: '/img/alt-close-btn.svg',
         //closeBtnText: false, //false deletes the corner button
-        // animation: 'fadeIn',
         animation: 'fromTop',
-        animationDuration: 350,
-        overlayFadeDuration: 250, //false is equal to 0 ms
+        animationDuration: 200,
+        overlayFadeDuration: 150, //false is equal to 0 ms
         onOpenStart: function(event, trigger) {
             console.log('onOpenStart');
         },
@@ -27,11 +26,4 @@ $(function () {
             console.log('onCloseEnd');
         },
     });
-
-    //usage of close method:
-    // $(document).on('keyup', function(e) {
-    //     if (e.key === 'x') {
-    //         $().aamodal('close');
-    //     }
-    // });
 });

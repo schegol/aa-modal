@@ -103,7 +103,6 @@
     const animations = {
         fadeIn: {
             classes: {
-                overlay: ' aa-modal--animated',
                 modal: ' aa-modal__body--animated aa-modal__body--fade-in',
             },
             functions: {
@@ -111,6 +110,7 @@
                     let def = $.Deferred();
 
                     modalBody.fadeIn(duration, function() {
+                        modalBody.removeClass(animations.fadeIn.classes.modal);
                         def.resolve();
                     });
                     
@@ -119,7 +119,8 @@
                 close: function(modalBody, duration) {
                     let def = $.Deferred();
 
-                    modalBody.fadeOut(duration, function() {
+                    modalBody.addClass(animations.fadeIn.classes.modal).fadeOut(duration, function() {
+                        modalBody.removeClass(animations.fadeIn.classes.modal).hide();
                         def.resolve();
                     });
 
@@ -129,23 +130,27 @@
         },
         fromTop: {
             classes: {
-                overlay: ' aa-modal--animated',
                 modal: ' aa-modal__body--animated aa-modal__body--from-top',
             },
             functions: {
                 open: function(modalBody, duration) {
                     let def = $.Deferred();
 
-                    modalBody.show().animate({top: '50%'}, duration, function() {
+                    modalBody.removeAttr('style');
+                    let modalHeight = modalBody.outerHeight();
+                    modalBody.css({top: '-' + (modalHeight / 2 + 50) + 'px'}).animate({top: '50%'}, duration, function() {
+                        modalBody.removeClass('aa-modal__body--animated aa-modal__body--from-top');
                         def.resolve();
                     });
 
                     return def.promise();
                 },
                 close: function(modalBody, duration) {
-                    let def = $.Deferred();
+                    let def = $.Deferred(),
+                        modalHeight = modalBody.outerHeight();
 
-                    modalBody.animate({top: '-' + ($(window).innerHeight() / 2) + 'px'}, duration, function() {
+                    modalBody.addClass(animations.fromTop.classes.modal).animate({top: '-' + (modalHeight / 2 + 50) + 'px'}, duration, function() {
+                        modalBody.removeClass(animations.fromTop.classes.modal).hide();
                         def.resolve();
                     });
 
@@ -180,7 +185,7 @@
         closeBtnExternal: false,
         closeBtnSelector: false,
         animation: false,
-        animationDuration: 500,
+        animationDuration: 400,
         overlayFadeDuration: 200,
 
         // callbacks:
@@ -211,8 +216,7 @@
         },
         close: function() {
             if (!modalIsLoading) {
-                // closeModal(settings);
-                console.log('close method called');
+                console.log('close method is WIP');
             }
         }
     };
@@ -288,6 +292,7 @@
 
                 if (settings.overlayFadeDuration) {
                     aaModalOverlay.fadeIn(settings.overlayFadeDuration, function() {
+                        aaModalOverlay.removeClass('aa-modal--fade');
                         def.resolve();
                     });
                 } else {
@@ -376,8 +381,6 @@
                     }
                 });
 
-                //new modal call inside the one that's already open:
-                //TODO: make a way to add more selectors to trigger openModal() from inside?
                 aaModalOverlay.on('click', defaultOpenTriggers, function(e) {
                     aaModalOverlay.off();
                     aaModalBody.off();
@@ -453,7 +456,7 @@
             let def = $.Deferred();
 
             if (settings.overlayFadeDuration) {
-                aaModalOverlay.fadeOut(settings.overlayFadeDuration, function() {
+                aaModalOverlay.addClass('aa-modal--fade').fadeOut(settings.overlayFadeDuration, function() {
                     aaModalOverlay.remove();
 
                     def.resolve();
