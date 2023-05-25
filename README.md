@@ -1,9 +1,9 @@
 # <h1 id="intro">AA Modal</h1>
 A simple yet flexible jQuery modal plugin to load content into modal popups via AJAX.
-___
+
 ## <h2 id="demo">Demo</h2>
 WIP
-___
+
 ## <h2 id="getting-started">Getting started</h2>
 First of all, add the latest stable jQuery library version to your page. Add the AA Modal plugin afterwards. Make sure that jQuery is plugged in ***before*** AA Modal plugin. Javascript files are usually added before the `</body>` closing tag:
 ```html
@@ -52,7 +52,6 @@ $(function() {
 ```
 The full list of posiible options for you to customize can be found [down below](#options).
 
-___
 ## <h2 id="options">Options</h2>
 
 This list might change and/or expand in later plugin versions so mind your plugin version <small>(it's a good idea to act that way regardless of plugins you use)</small>:
@@ -69,7 +68,6 @@ animation           | string                                               | fal
 animationDuration   | int or <span style="color: deeppink">false</span>    | 400           | If `animation` is on, this option sets it's duration. **Setting this option to `false` makes animation duration 0 ms long**.
 overlayFadeDuration | int or <span style="color: deeppink">false</span>    | 200           | Sets how long it takes to modal overlay to fade in (while opening) and fade out (while closing). **Setting this option to `false` makes animation duration 0 ms long**.
 
-___
 ## <h2 id="callbacks">Callbacks</h2>
 
 Existing callbacks (*also known as events*):
@@ -102,6 +100,5 @@ $(function() {
 });
 ```
 
-___
 ## <h2 id="dependencies">Dependencies</h2>
 jQuery 3.6.4 or higher
